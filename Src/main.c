@@ -39,6 +39,7 @@ TIM_OC_InitTypeDef sConfig;
 void Error_Handler(void);
 static void APP_TIM1_INIT(void);
 static void APP_TIM1_PWM(void);
+static void APP_SystemClockConfig(void);
 
 /**
   * @brief  应用程序入口函数.
@@ -48,6 +49,7 @@ int main(void)
 {
   /* 初始化所有外设，Flash接口，SysTick */
   HAL_Init();
+  APP_SystemClockConfig();
   
   APP_TIM1_INIT();
   APP_TIM1_PWM();
@@ -84,6 +86,39 @@ int main(void)
 
   }
 }
+
+void APP_SystemClockConfig(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /* 振荡器配置 */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI ; /* 选择振荡器HSE,HSI,LSI */
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;                          /* 开启HSI */
+  RCC_OscInitStruct.HSIDiv = RCC_HSI_DIV1;                          /* HSI 1分频 */
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_24MHz;  /* 配置HSI时钟8MHz */
+  RCC_OscInitStruct.HSEState = RCC_HSE_OFF;                         /* 关闭HSE */
+  RCC_OscInitStruct.LSIState = RCC_LSI_OFF;                         /* 关闭LSI */
+
+  /* 配置振荡器 */
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* 时钟源配置 */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1; /* 选择配置时钟 HCLK,SYSCLK,PCLK1 */
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI; /* 选择HSI作为系统时钟 */
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;     /* AHB时钟 1分频 */
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;      /* APB时钟 1分频 */
+  /* 配置时钟源 */
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+
 /**
   * @brief  TIM1初始化函数
   * @param  无
@@ -91,10 +126,24 @@ int main(void)
   */
 static void APP_TIM1_INIT(void)
 {
+
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* 使能 GPIOA 时钟 */
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Alternate = GPIO_AF1_TIM1;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /* 选择TIM1 */
+  // 频率是600Hz，定时器时钟频率48MHz，分频48
   TimHandle.Instance = TIM1;                                                  
-  TimHandle.Init.Period            = 50;                                     
-  TimHandle.Init.Prescaler         = 800 - 1;                                 
+  TimHandle.Init.Period            = 1667 - 1;     // 600HZ=1666us                               
+  TimHandle.Init.Prescaler         = 24 - 1;     // 1MHz 1us                             
   TimHandle.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;                  
   TimHandle.Init.CounterMode       = TIM_COUNTERMODE_UP;                      
   TimHandle.Init.RepetitionCounter = 1 - 1;                                   
